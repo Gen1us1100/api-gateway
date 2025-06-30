@@ -1,0 +1,32 @@
+
+## auth 
+curl -X POST http://localhost:8080/api/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email": "test@xyz.com","username":"sucks", "password":"test"}'
+     
+curl -X POST http://localhost:8080/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "test@xyz.com","username":"sucks", "password":"test"}'
+
+
+## journi -- requires authorization
+curl -X POST http://localhost:8080/api/journis/ \
+     -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg4NzY4MTEsInVzZXJfaWQiOiI2ZmMxMjFiYS1jZWM1LTQ1NmMtODgyMi01NTI4YWVkZmJlNmIifQ.BkcOohsxa-hJSkRmbJVvcbNG1MisyA_BD5Fkyv9i2lQ" \
+  -d '{"mood":0,"title":"This is a test journi","Body":"This demo works!"}'
+
+curl -X POST http://localhost:8080/api/journis/ \
+     -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkwMjMyMDEsInVzZXJfaWQiOiI2ZmMxMjFiYS1jZWM1LTQ1NmMtODgyMi01NTI4YWVkZmJlNmIifQ.LgSXGZWgxg6CrHMKyOLsP3ZLBL1jhpYJVDi6hbCx8sE"\
+  -d '{"mood":1,"title":"This is a latest test journi","Body":"This demo works!"}'
+
+
+## by id
+curl -X GET http://localhost:8080/api/journis/b84a03e4-f81c-4ac5-a113-946eec2e40e6 \
+     -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkwMjMyMDEsInVzZXJfaWQiOiI2ZmMxMjFiYS1jZWM1LTQ1NmMtODgyMi01NTI4YWVkZmJlNmIifQ.LgSXGZWgxg6CrHMKyOLsP3ZLBL1jhpYJVDi6hbCx8sE"\
+
+
+
+## UPDATE A journey
+
+curl -X UPDATE http://localhost:8080/api/journis/b84a03e4-f81c-4ac5-a113-946eec2e40e6 \
+     -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkwMjMyMDEsInVzZXJfaWQiOiI2ZmMxMjFiYS1jZWM1LTQ1NmMtODgyMi01NTI4YWVkZmJlNmIifQ.LgSXGZWgxg6CrHMKyOLsP3ZLBL1jhpYJVDi6hbCx8sE"\
+  -d '{"mood":1,"title":"This is an updated test journi","Body":"This demo works!"}'
