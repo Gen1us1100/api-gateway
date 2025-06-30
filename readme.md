@@ -31,7 +31,7 @@ Need a single, reliable point of entry for your microservices? API-Gateway provi
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/api-gateway.git
+    git clone https://github.com/Gen1us1100/api-gateway.git
     cd api-gateway
     ```
 
