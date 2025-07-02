@@ -1,35 +1,83 @@
+// pkg/config/config.go
 package config
 
 import (
+	"errors"
+	"gopkg.in/yaml.v3"
+	"log"
 	"os"
 )
 
+// Config holds the entire application configuration.
+// It uses yaml tags for file-based config and is then overridden by environment variables.
 type Config struct {
-	Port       string
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	JWTSecret  string
+	Port       string  `yaml:"port"`
+	DBHost     string  `yaml:"db_host"`
+	DBPort     string  `yaml:"db_port"`
+	DBUser     string  `yaml:"db_user"`
+	DBPassword string  `yaml:"db_password"` // This will come from env
+	DBName     string  `yaml:"db_name"`
+	Routes     []Route `yaml:"routes"`
+	JWTSecret  string  `yaml:"jwt_secret"` // This will come from env
 }
 
-func LoadConfig() *Config {
-	return &Config{
-		Port:       getEnv("PORT", "8080"),
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "myuser"),
-		DBPassword: getEnv("DB_PASSWORD", "mypassword"),
-		DBName:     getEnv("DB_NAME", "journi"),
-		JWTSecret:  getEnv("JWT_SECRET", "your-secret-key"),
+// Route defines a single routing rule
+type Route struct {
+	PathPrefix  string `yaml:"path_prefix"`
+	UpstreamURL string `yaml:"upstream_url"`
+}
+
+// LoadConfig reads configuration from a file and overrides with environment variables.
+func LoadConfig(path string) (*Config, error) {
+	cfg := &Config{}
+
+	// Step 1: Load the base configuration from the YAML file
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
+	err = yaml.Unmarshal(file, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 2: Override with values from environment variables
+	// This allows for secure handling of secrets and environment-specific settings.
+	overrideWithEnv(cfg)
+
+	// Step 3: Validate that essential secrets are present
+	if cfg.DBPassword == "" {
+		return nil, errors.New("DB_PASSWORD environment variable must be set")
+	}
+	if cfg.JWTSecret == "" {
+		return nil, errors.New("JWT_SECRET environment variable must be set")
+	}
+
+	return cfg, nil
 }
 
+// overrideWithEnv checks for environment variables and updates the config struct.
+func overrideWithEnv(cfg *Config) {
+	cfg.Port = getEnv("PORT", cfg.Port)
+	cfg.DBHost = getEnv("DB_HOST", cfg.DBHost)
+	cfg.DBPort = getEnv("DB_PORT", cfg.DBPort)
+	cfg.DBUser = getEnv("DB_USER", cfg.DBUser)
+	cfg.DBName = getEnv("DB_NAME", cfg.DBName)
+
+	// For secrets, we don't want a default value from the file, so the second arg is ""
+	cfg.DBPassword = getEnv("DB_PASSWORD", "")
+	cfg.JWTSecret = getEnv("JWT_SECRET", "")
+}
+
+// getEnv retrieves an environment variable or returns a default value.
+// It's a robust helper that can handle cases where a variable is set but empty.
 func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
+	if value, exists := os.LookupEnv(key); exists {
+		log.Printf("Using environment variable '%s'", key)
+		return value
 	}
-	return value
+	if defaultValue == "" {
+		log.Printf("Warning: Environment variable '%s' not set, and no default value provided.", key)
+	}
+	return defaultValue
 }

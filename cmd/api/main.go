@@ -21,13 +21,23 @@ import (
 )
 
 func main() {
-	router := mux.NewRouter()
-	cfg := config.LoadConfig()
+	// --- YOUR EXISTING SETUP (UNCHANGED) ---
+	log.Println("Starting API Gateway setup...")
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	db, err := db.NewDB(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+	defer db.Close()
+
 	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
+	if err != nil {
+		log.Fatalf("Failed to create postgres driver instance: %v", err)
+	}
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://migrations/",
 		"postgres", driver)
@@ -36,42 +46,61 @@ func main() {
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Migration failed: %v", err)
+		log.Fatalf("An error occurred while running migration: %v", err)
+	} else {
+		log.Println("Database migration completed successfully.")
 	}
-	m.Up()
 
-	defer db.Close()
+	// --- ROUTER & HANDLER SETUP ---
+	router := mux.NewRouter()
+
 	userHandler := handlers.NewUserHandler(db, cfg)
-	// Public routes
+
+	// NEW CHANGE: Initialize the proxy handler here. It will be used later.
+	// This handler reads your config.yaml and knows how to forward requests
+	// to the correct upstream services (e.g., user-service, order-service).
+	proxyHandler := handlers.NewProxyHandler(cfg)
+
+	// --- PUBLIC ROUTES (No auth required) ---
+	// These are handled directly by the gateway itself.
+	log.Println("Registering public routes...")
 	router.HandleFunc("/api/auth/register", userHandler.Register).Methods("POST")
 	router.HandleFunc("/api/auth/login", userHandler.Login).Methods("POST")
-	//	router.HandleFunc("/api/api-gateways/", api-gatewayHandler.Createapi-gateway).Methods("POST")
-
-	// Protected routes
-	protected := router.PathPrefix("/api").Subrouter()
-	protected.Use(middleware.AuthMiddleware(cfg))
-
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Replace with your frontend's origin(s)
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, "UPDATE", http.MethodOptions},
-		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With"}, // Add any custom headers your frontend sends
-		AllowCredentials: true,                                                          // If you're using cookies or session-based authentication
-		// Enable Debugging for verbose output:
-		//	Debug: true,
-	})
-	handler := c.Handler(router)
-	// Health check endpoint
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}).Methods("GET")
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// --- PROTECTED ROUTES (Auth required) ---
+	// We create a subrouter that will have the auth middleware applied to it.
+	// Any route registered on 'protected' will require a valid JWT.
+	log.Println("Registering protected routes...")
+	protected := router.PathPrefix("/api").Subrouter()
+	protected.Use(middleware.AuthMiddleware(cfg))
 
-	// --- NEW GRACEFUL SHUTDOWN LOGIC ---
+	// NEW CHANGE: Register the dynamic proxy as the "catch-all" handler for the protected subrouter.
+	// The PathPrefix("/") here means that any request starting with "/api" that hasn't already
+	// been matched by a more specific route (like /api/auth/login) will be sent to the proxy.
+	// The proxy will then decide where to forward it based on your config.yaml.
+	// For example:
+	// - A request to "/api/users/123" will hit this handler.
+	// - A request to "/api/orders" will also hit this handler.
+	// This single line replaces the need to manually define every single backend route.
+	//	protected.PathPrefix("/").Handler(proxyHandler)
+	protected.PathPrefix("/").Handler(http.StripPrefix("/api", proxyHandler))
+
+	// --- CORS & SERVER SETUP ---
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Replace with your frontend's origin(s) in production
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, "UPDATE", http.MethodOptions},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With"},
+		AllowCredentials: true,
+	})
+	handler := c.Handler(router)
+
+	port := cfg.Port // Use port from config
+
+	// --- GRACEFUL SHUTDOWN LOGIC (UNCHANGED) ---
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: handler, // your cors-wrapped handler
