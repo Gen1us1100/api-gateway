@@ -69,18 +69,6 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				http.Error(w, "Token is not valid", http.StatusUnauthorized)
 				return
 			}
-
-			// --- THIS IS THE NEW PART ---
-			// 1. Extract Claims
-			//			claims, ok := token.Claims.(jwt.MapClaims)
-			//			if !ok {
-			//				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-			//				return
-			//			}
-			// 2. Get the User ID (or subject) from claims
-			//    The claim name 'sub' (subject) is common for user ID.
-			//    Or you might have a custom claim like 'user_id'. Adjust as needed.
-
 			userID := claims.UserID
 
 			// 3. Store the User ID in the request's context

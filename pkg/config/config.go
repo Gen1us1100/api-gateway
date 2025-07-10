@@ -1,4 +1,3 @@
-// pkg/config/config.go
 package config
 
 import (
@@ -31,7 +30,7 @@ type Route struct {
 func LoadConfig(path string) (*Config, error) {
 	cfg := &Config{}
 
-	// Step 1: Load the base configuration from the YAML file
+	//  Load the base configuration from the YAML file
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -41,11 +40,11 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	// Step 2: Override with values from environment variables
+	//  Override with values from environment variables
 	// This allows for secure handling of secrets and environment-specific settings.
 	overrideWithEnv(cfg)
 
-	// Step 3: Validate that essential secrets are present
+	// Validate that essential secrets are present
 	if cfg.DBPassword == "" {
 		return nil, errors.New("DB_PASSWORD environment variable must be set")
 	}

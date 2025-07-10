@@ -17,11 +17,17 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 func main() {
-	// --- YOUR EXISTING SETUP (UNCHANGED) ---
+	err := godotenv.Load()
+	if err != nil {
+		// This is not a fatal error. In production, you won't have a .env file.
+		// The variables will be set directly in the environment.
+		log.Println("Warning: .env file not found, reading config from environment")
+	}
 	log.Println("Starting API Gateway setup...")
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
@@ -56,7 +62,6 @@ func main() {
 
 	userHandler := handlers.NewUserHandler(db, cfg)
 
-	// NEW CHANGE: Initialize the proxy handler here. It will be used later.
 	// This handler reads your config.yaml and knows how to forward requests
 	// to the correct upstream services (e.g., user-service, order-service).
 	proxyHandler := handlers.NewProxyHandler(cfg)
@@ -76,6 +81,8 @@ func main() {
 	// Any route registered on 'protected' will require a valid JWT.
 	log.Println("Registering protected routes...")
 	protected := router.PathPrefix("/api").Subrouter()
+	protected.Use(middleware.RequestIDMiddleware)
+	protected.Use(middleware.LoggingMiddleware)
 	protected.Use(middleware.AuthMiddleware(cfg))
 
 	// NEW CHANGE: Register the dynamic proxy as the "catch-all" handler for the protected subrouter.
@@ -103,7 +110,7 @@ func main() {
 	// --- GRACEFUL SHUTDOWN LOGIC (UNCHANGED) ---
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: handler, // your cors-wrapped handler
+		Handler: handler, // cors-wrapped handler
 	}
 
 	// Run the server in a goroutine so that it doesn't block.

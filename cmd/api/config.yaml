@@ -1,0 +1,21 @@
+ # config.yaml
+
+# ---- Server Configuration ----
+port: "8080"
+
+# ---- Database Defaults (for local development) ----
+# In production, these will likely be overridden by environment variables.
+db_host: "localhost"
+db_port: "5432"
+db_user: "myuser"
+db_name: "journi"
+
+# ---- Routing Configuration ----
+routes:
+#  - path_prefix: /users
+#    upstream_url: "http://localhost:8081"
+  - path_prefix: "/orders"
+    upstream_url: "http://localhost:8082"
+  - path_prefix: "/"
+    upstream_url: "http://localhost:8081"
+
