@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/gen1us1100/api-gateway/internal/models"
-	"github.com/gen1us1100/api-gateway/pkg/config"
+	"github.com/gen1us1100/go-gateway/internal/models"
+	"github.com/gen1us1100/go-gateway/pkg/config"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"

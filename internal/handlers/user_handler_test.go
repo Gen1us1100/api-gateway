@@ -14,8 +14,8 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/dgrijalva/jwt-go" // You're using this, ensure it's in go.mod
-	"github.com/gen1us1100/api-gateway/internal/models"
-	"github.com/gen1us1100/api-gateway/pkg/config"
+	"github.com/gen1us1100/go-gateway/internal/models"
+	"github.com/gen1us1100/go-gateway/pkg/config"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq" // For pq.Error

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gen1us1100/api-gateway/pkg/config"
+	"github.com/gen1us1100/go-gateway/pkg/config"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )

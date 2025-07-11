@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gen1us1100/api-gateway/pkg/config"
-	"github.com/gen1us1100/api-gateway/pkg/middleware"
+	"github.com/gen1us1100/go-gateway/pkg/config"
+	"github.com/gen1us1100/go-gateway/pkg/middleware"
 	"github.com/rs/zerolog/log"
 )
 

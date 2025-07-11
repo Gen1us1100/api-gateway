@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gen1us1100/api-gateway/internal/services"
+	"github.com/gen1us1100/go-gateway/internal/services"
 )
 
 // RateLimitMiddleware checks if the client has exceeded their request limit.

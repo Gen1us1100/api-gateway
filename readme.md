@@ -1,4 +1,4 @@
-# API-Gateway: A Lightweight, Production-Ready Gateway in Go
+# Go-Gateway: A Lightweight, Production-Ready Gateway in Go
 
 A no-bs, minimalistic, and high-performance API Gateway scaffold built in Go. This project provides a single, secure entry point for your microservices, complete with essential production-grade features. It's designed to be simple to understand, configure, and extend.
 
@@ -39,8 +39,8 @@ Make sure your Go `bin` directory is in your system's `PATH`.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/Gen1us1100/api-gateway.git
-    cd api-gateway
+    git clone https://github.com/Gen1us1100/go-gateway.git
+    cd go-gateway
     # for resolving dependencies
     go mod tidy
     ```
