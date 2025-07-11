@@ -77,6 +77,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Add the userID as a custom header for the backend service to read.
 			req.Header.Set("X-User-ID", userID)
 		}
+		req.Header.Set("X-Request-ID", requestID)
 	}
 
 	// This function is called AFTER the backend responds, but BEFORE the gateway

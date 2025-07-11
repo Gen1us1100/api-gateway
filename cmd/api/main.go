@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gen1us1100/api-gateway/internal/handlers"
+	"github.com/gen1us1100/api-gateway/internal/services"
 	"github.com/gen1us1100/api-gateway/pkg/config"
 	"github.com/gen1us1100/api-gateway/pkg/db"
 	"github.com/gen1us1100/api-gateway/pkg/middleware"
@@ -22,6 +23,7 @@ import (
 )
 
 func main() {
+	go services.CleanupVisitors()
 	err := godotenv.Load()
 	if err != nil {
 		// This is not a fatal error. In production, you won't have a .env file.
@@ -69,6 +71,11 @@ func main() {
 	// --- PUBLIC ROUTES (No auth required) ---
 	// These are handled directly by the gateway itself.
 	log.Println("Registering public routes...")
+	router.Use(middleware.RequestIDMiddleware)
+	router.Use(middleware.SecureHeadersMiddleware)
+	router.Use(middleware.LoggingMiddleware)
+	router.Use(middleware.RateLimitMiddleware)
+
 	router.HandleFunc("/api/auth/register", userHandler.Register).Methods("POST")
 	router.HandleFunc("/api/auth/login", userHandler.Login).Methods("POST")
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +88,9 @@ func main() {
 	// Any route registered on 'protected' will require a valid JWT.
 	log.Println("Registering protected routes...")
 	protected := router.PathPrefix("/api").Subrouter()
-	protected.Use(middleware.RequestIDMiddleware)
-	protected.Use(middleware.LoggingMiddleware)
+	//	protected.Use(middleware.RequestIDMiddleware)
+	//	protected.Use(middleware.RateLimitMiddleware)
+	//	protected.Use(middleware.LoggingMiddleware)
 	protected.Use(middleware.AuthMiddleware(cfg))
 
 	// NEW CHANGE: Register the dynamic proxy as the "catch-all" handler for the protected subrouter.
