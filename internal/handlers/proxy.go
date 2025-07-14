@@ -27,33 +27,38 @@ func NewProxyHandler(cfg *config.Config) *ProxyHandler {
 
 // ServeHTTP is the main entry point for proxying.
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Find the correct upstream service for the request path.
-	var targetRoute *config.Route
-	for _, route := range p.config.Routes {
+	var bestMatch *config.Route
+	var longestPrefix int = 0
+
+	// Iterate through all routes to find the best match.
+	for i, route := range p.config.Routes {
+		// Check if the request path has the route's prefix.
 		if strings.HasPrefix(r.URL.Path, route.PathPrefix) {
-			targetRoute = &route // Found a matching route.
-			break
+			// If this route's prefix is longer than the best one we've found so far,
+			// it becomes the new best match.
+			if len(route.PathPrefix) > longestPrefix {
+				longestPrefix = len(route.PathPrefix)
+				bestMatch = &p.config.Routes[i] // Point to the route in the slice
+			}
 		}
 	}
 
-	// If no route is found, return an error.
-	if targetRoute == nil {
+	// If after checking all routes, we still have no match, return 404.
+	if bestMatch == nil {
 		http.Error(w, "Route not found", http.StatusNotFound)
 		return
 	}
 
-	// Parse the upstream URL.
-	upstreamURL, err := url.Parse(targetRoute.UpstreamURL)
+	// 3. We have found the longest matching prefix. Now, proxy the request.
+	upstreamURL, err := url.Parse(bestMatch.UpstreamURL)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to parse upstream URL")
+		log.Error().Err(err).Str("route_prefix", bestMatch.PathPrefix).Msg("Failed to parse upstream URL")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// --- LEVEL 2 LOGGING IMPLEMENTATION ---
-
-	// Create a new reverse proxy instance for this specific request.
 	proxy := httputil.NewSingleHostReverseProxy(upstreamURL)
+	// --- LEVEL 2 LOGGING IMPLEMENTATION ---
 
 	// Get the request ID from the context to correlate logs.
 	requestID, _ := r.Context().Value(middleware.CtxRequestIDKey).(string)
@@ -86,7 +91,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Log the details of the backend interaction.
 		log.Info().
 			Str("request_id", requestID).
-			Str("upstream_service", targetRoute.UpstreamURL).
+			Str("upstream_service", bestMatch.UpstreamURL).
 			Int("upstream_status", resp.StatusCode).
 			Msg("Response received from upstream")
 		return nil // Return nil to not modify the response.
@@ -97,7 +102,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error().
 			Err(err).
 			Str("request_id", requestID).
-			Str("upstream_service", targetRoute.UpstreamURL).
+			Str("upstream_service", bestMatch.UpstreamURL).
 			Msg("Upstream service error")
 		http.Error(w, fmt.Sprintf("Upstream service unavailable: %v", err), http.StatusBadGateway)
 	}
@@ -112,7 +117,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upstreamDuration := time.Since(upstreamStartTime)
 	log.Info().
 		Str("request_id", requestID).
-		Str("upstream_service", targetRoute.UpstreamURL).
+		Str("upstream_service", bestMatch.UpstreamURL).
 		Dur("upstream_latency_ms", upstreamDuration).
 		Msg("Upstream request completed")
 }

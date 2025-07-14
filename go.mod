@@ -14,7 +14,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.34.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/time v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
