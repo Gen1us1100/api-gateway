@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	go services.CleanupVisitors()
+	go services.CleanupVisitorsLoop()
 	err := godotenv.Load()
 	if err != nil {
 		// This is not a fatal error. In production, you won't have a .env file.
