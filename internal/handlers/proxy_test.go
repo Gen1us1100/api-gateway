@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gen1us1100/go-gateway/pkg/config"
+	"github.com/gen1us1100/go-gateway/pkg/middleware"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,5 +160,83 @@ func TestProxyHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "profile backend", recorder.Body.String(), "Request should be routed to the more specific backend")
+	})
+
+	t.Run("should correctly propagate query parameters", func(t *testing.T) {
+		var receivedQuery string
+		mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Capture the raw query string received by the backend.
+			receivedQuery = r.URL.RawQuery
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer mockBackend.Close()
+
+		cfg := &config.Config{Routes: []config.Route{{PathPrefix: "/search", UpstreamURL: mockBackend.URL}}}
+		proxyHandler := NewProxyHandler(cfg)
+
+		// Request with query parameters.
+		req := httptest.NewRequest(http.MethodGet, "/search?q=golang&limit=10", nil)
+		recorder := httptest.NewRecorder()
+
+		proxyHandler.ServeHTTP(recorder, req)
+
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "q=golang&limit=10", receivedQuery, "Query parameters should be propagated unchanged")
+	})
+
+	t.Run("should transparently proxy upstream error status codes (500, 404)", func(t *testing.T) {
+		mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/error" {
+				http.Error(w, "Backend crashed!", http.StatusInternalServerError)
+			}
+			if r.URL.Path == "/api/missing" {
+				http.Error(w, "Item not found in backend", http.StatusNotFound)
+			}
+		}))
+		defer mockBackend.Close()
+
+		cfg := &config.Config{Routes: []config.Route{{PathPrefix: "/api", UpstreamURL: mockBackend.URL}}}
+		proxyHandler := NewProxyHandler(cfg)
+
+		req500 := httptest.NewRequest(http.MethodGet, "/api/error", nil)
+		recorder500 := httptest.NewRecorder()
+		proxyHandler.ServeHTTP(recorder500, req500)
+		assert.Equal(t, http.StatusInternalServerError, recorder500.Code, "Gateway should proxy the 500 status")
+		assert.Contains(t, recorder500.Body.String(), "Backend crashed!")
+
+		req404 := httptest.NewRequest(http.MethodGet, "/api/missing", nil)
+		recorder404 := httptest.NewRecorder()
+		proxyHandler.ServeHTTP(recorder404, req404)
+		assert.Equal(t, http.StatusNotFound, recorder404.Code, "Gateway should proxy the 404 status")
+	})
+
+	t.Run("should inject X-User-ID and X-Request-ID headers from context", func(t *testing.T) {
+		const testUserID = "user-test-456"
+		const testRequestID = "req-id-789"
+
+		var receivedUserIDHeader, receivedRequestIDHeader string
+		mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			receivedUserIDHeader = r.Header.Get("X-User-ID")
+			receivedRequestIDHeader = r.Header.Get("X-Request-ID")
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer mockBackend.Close()
+
+		cfg := &config.Config{Routes: []config.Route{{PathPrefix: "/secure", UpstreamURL: mockBackend.URL}}}
+		proxyHandler := NewProxyHandler(cfg)
+
+		req := httptest.NewRequest(http.MethodGet, "/secure/data", nil)
+
+		ctx := context.WithValue(req.Context(), middleware.UserIDKey, testUserID)
+		ctx = context.WithValue(ctx, middleware.CtxRequestIDKey, testRequestID)
+		req = req.WithContext(ctx)
+
+		recorder := httptest.NewRecorder()
+
+		proxyHandler.ServeHTTP(recorder, req)
+
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, testUserID, receivedUserIDHeader, "X-User-ID header should be set from context")
+		assert.Equal(t, testRequestID, receivedRequestIDHeader, "X-Request-ID header should be set from context")
 	})
 }
